@@ -1,20 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Projectile Target Game</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
+  <style>
+  body {
+    background: #000;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+  }
+
+  canvas {
+    display: block;
+    margin: 10px auto;
+    background: #111;
+    border: 2px solid white;
+    width: 95vw;
+    height: 55vh;
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 15px auto;
+    max-width: 95vw;
+  }
+
+  .slider-group {
+    margin: 5px 10px;
+    text-align: left;
+    width: 90%;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  input[type="range"] {
+    width: 100%;
+  }
+
+  button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    background: #fff;
+    border: none;
+    font-weight: bold;
+    color: #000;
+    cursor: pointer;
+  }
+
+  #message {
+    font-size: 1.2rem;
+    margin-top: 10px;
+    color: lime;
+  }
+
+  /* Row layout for wider screens */
+  @media (min-width: 768px) {
+    .controls {
+      flex-direction: row;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .slider-group {
+      width: 200px;
+    }
+  }
+</style>
+
 </head>
 <body>
 
 <h1>🎯 Hit the Moving Target!</h1>
-<canvas id="gameCanvas" width="800" height="400"></canvas>
+<canvas id="gameCanvas"></canvas>
 
 <div class="controls">
-  <label>Velocity X (m/s): <input type="number" id="velX" value="20"></label>
-  <label>Velocity Y (m/s): <input type="number" id="velY" value="20"></label>
-  <label>Gravity (m/s²): <input type="number" id="gravity" value="9.8"></label>
-  <label>Target Speed: <input type="number" id="targetSpeed" value="1.5" step="0.1"></label>
+  <div class="slider-group">
+    <label>X Velocity: <span id="velXVal">15</span></label>
+    <input type="range" min="1" max="25" value="15" id="velX">
+  </div>
+  <div class="slider-group">
+    <label>Y Velocity: <span id="velYVal">15</span></label>
+    <input type="range" min="1" max="25" value="15" id="velY">
+  </div>
+  <div class="slider-group">
+    <label>Gravity: <span id="gravityVal">9.8</span></label>
+    <input type="range" min="1" max="20" value="9.8" step="0.1" id="gravity">
+  </div>
+  <div class="slider-group">
+    <label>Target Speed: <span id="targetSpeedVal">0.5</span></label>
+    <input type="range" min="0.2" max="3" value="0.5" step="0.1" id="targetSpeed">
+  </div>
   <button id="startBtn">Launch</button>
 </div>
 
