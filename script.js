@@ -1,145 +1,195 @@
 const canvas = document.getElementById("gameCanvas");
+
 const ctx = canvas.getContext("2d");
 
-let projectile = { x: 0, y: 0, velX: 20, velY: 20 };
-let g = 9.8;
-let time = 0;
-let launched = false;
-const scale = 20;
+canvas.width = canvas.clientWidth;
+canvas.height = canvas.clientHeight;
+let scale = canvas.width / 40;
 
-const target = {
-  x: 600,
-  y: 200,
-  radius: 15,
-  speedX: 0.2,
-  speedY: 0.2,
-  directionX: 1,
-  directionY: 1
+function resizeCanvas() {
+  canvas.width = window.innerWidth * 0.95;
+  canvas.height = window.innerHeight * 0.55;
+  scale = canvas.width / 40;
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas(); // Call initially
+
+
+
+let g = 9.8;
+let launched = false;
+
+let projectile = {
+  velX: 15,
+  velY: 15,
+  time: 0
 };
 
-const trail = [];
-const targetTrail = [];
-const maxTrailLength = 20;
+let targets = [
+  {
+    x: 600,
+    y: 200,
+    radius: 15,
+    speedX: 0.5,
+    speedY: 0.5,
+    directionX: 1,
+    directionY: 1,
+    hue: Math.floor(Math.random() * 360),
+    trail: []
+  }
+];
 
 const message = document.getElementById("message");
+let score = 0, totalHits = 0, totalMisses = 0, gameTimer = 60, gameActive = true;
 
-let score = 0;
-let totalHits = 0;
-let totalMisses = 0;
-let gameTimer = 60;
-let gameActive = true;
+// Sliders
+const velXInput = document.getElementById("velX");
+const velYInput = document.getElementById("velY");
+const gravityInput = document.getElementById("gravity");
+const targetSpeedInput = document.getElementById("targetSpeed");
 
+// Label updates
+function syncSliderLabels() {
+  velXInput.addEventListener("input", () => document.getElementById("velXVal").textContent = velXInput.value);
+  velYInput.addEventListener("input", () => document.getElementById("velYVal").textContent = velYInput.value);
+  gravityInput.addEventListener("input", () => document.getElementById("gravityVal").textContent = gravityInput.value);
+  targetSpeedInput.addEventListener("input", () => document.getElementById("targetSpeedVal").textContent = targetSpeedInput.value);
+}
+syncSliderLabels();
+
+// Launch
 document.getElementById("startBtn").addEventListener("click", () => {
-  if (!gameActive) return;
+  if (!gameActive || launched) return;
 
-  projectile.velX = parseFloat(document.getElementById("velX").value);
-  projectile.velY = parseFloat(document.getElementById("velY").value);
-  g = parseFloat(document.getElementById("gravity").value);
+  projectile.velX = parseFloat(velXInput.value);
+  projectile.velY = parseFloat(velYInput.value);
+  g = parseFloat(gravityInput.value);
+  const speed = parseFloat(targetSpeedInput.value);
 
-  const newSpeed = parseFloat(document.getElementById("targetSpeed").value);
-  target.speedX = newSpeed;
-  target.speedY = newSpeed;
+  for (let t of targets) {
+    t.speedX = speed;
+    t.speedY = speed;
+  }
 
-  projectile.x = 0;
-  projectile.y = 0;
-  time = 0;
+  projectile.time = 0;
   launched = true;
   message.textContent = "";
-  trail.length = 0;
 });
 
+function drawLightningTrail(trail, hue) {
+  for (let i = 0; i < trail.length; i++) {
+    const p = trail[i];
+    const progress = p.age / 180;
+    if (progress > 1) continue;
+
+    const alpha = 1 - progress;
+    const offset = Math.sin(i * 0.4 + performance.now() / 100) * 6;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y + offset, 6, 0, Math.PI * 2);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = `hsl(${hue}, 100%, 70%)`;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+}
+
 function update() {
-  ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  if (gameActive) {
-    // Move target
-    target.x += target.speedX * target.directionX;
-    target.y += target.speedY * target.directionY;
+  for (let t of targets) {
+    t.x += t.speedX * t.directionX;
+    t.y += t.speedY * t.directionY;
 
-    if (target.x > canvas.width - target.radius || target.x < target.radius) {
-      target.directionX *= -1;
-    }
-    if (target.y > canvas.height - target.radius || target.y < target.radius) {
-      target.directionY *= -1;
-    }
+    if (t.x > canvas.width - t.radius || t.x < t.radius) t.directionX *= -1;
+    if (t.y > canvas.height - t.radius || t.y < t.radius) t.directionY *= -1;
 
-    // Target trail
-    targetTrail.push({ x: target.x, y: target.y });
-    if (targetTrail.length > maxTrailLength) targetTrail.shift();
+    t.hue = (t.hue + 0.5) % 360;
 
-    for (let i = 0; i < targetTrail.length; i++) {
-      ctx.beginPath();
-      ctx.arc(targetTrail[i].x, targetTrail[i].y, target.radius * 0.6, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 0, 0, ${i / maxTrailLength})`;
-      ctx.fill();
+    t.trail.push({ x: t.x, y: t.y, age: 0 });
+    for (let j = t.trail.length - 1; j >= 0; j--) {
+      t.trail[j].age++;
+      if (t.trail[j].age > 180) t.trail.splice(j, 1);
     }
 
-    // Draw target
+    drawLightningTrail(t.trail, t.hue);
+
     ctx.beginPath();
-    ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
-    ctx.fillStyle = "red";
+    ctx.arc(t.x, t.y, t.radius, 0, Math.PI * 2);
+    ctx.fillStyle = `hsl(${t.hue}, 100%, 70%)`;
     ctx.fill();
   }
 
-  // Update projectile
   if (launched) {
-    time += 0.05;
-    projectile.x = projectile.velX * time;
-    projectile.y = projectile.velY * time + 0.5 * (-g) * Math.pow(time, 2);
-
-    const drawX = projectile.x * scale;
-    const drawY = canvas.height - (projectile.y * scale);
-
-    trail.push({ x: drawX, y: drawY });
-    if (trail.length > maxTrailLength) trail.shift();
-
-    for (let i = 0; i < trail.length; i++) {
-      ctx.beginPath();
-      ctx.arc(trail[i].x, trail[i].y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(0, 255, 255, ${i / maxTrailLength})`;
-      ctx.fill();
-    }
+    projectile.time += 0.05;
+    const px = projectile.velX * projectile.time;
+    const py = projectile.velY * projectile.time + 0.5 * (-g) * Math.pow(projectile.time, 2);
+    const drawX = px * scale;
+    const drawY = canvas.height - (py * scale);
 
     ctx.beginPath();
     ctx.arc(drawX, drawY, 8, 0, Math.PI * 2);
-    ctx.fillStyle = "cyan";
+    ctx.fillStyle = "white";
     ctx.fill();
 
-    const dist = Math.hypot(drawX - target.x, drawY - target.y);
-    if (dist < target.radius + 8) {
-      message.textContent = "You hit the target! 🎯";
-      score += 10;
-      totalHits++;
-      launched = false;
-      updateStats();
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i];
+      const dist = Math.hypot(drawX - t.x, drawY - t.y);
+      if (dist < t.radius + 8) {
+        score += 10;
+        totalHits++;
+        message.textContent = "🎯 Target hit and cloned!";
+
+        let newDirX, newDirY;
+        do {
+          newDirX = Math.random() < 0.5 ? -1 : 1;
+          newDirY = Math.random() < 0.5 ? -1 : 1;
+        } while (newDirX === t.directionX && newDirY === t.directionY);
+
+        const variedSpeed = t.speedX * (0.9 + Math.random() * 0.2);
+
+        targets.push({
+          x: t.x,
+          y: t.y,
+          radius: t.radius,
+          speedX: variedSpeed,
+          speedY: variedSpeed,
+          directionX: newDirX,
+          directionY: newDirY,
+          hue: Math.floor(Math.random() * 360),
+          trail: []
+        });
+
+        launched = false;
+        projectile.time = 0;
+        break;
+      }
     }
 
     if (drawX > canvas.width || drawY > canvas.height || drawY < 0) {
-      message.textContent = "You missed!";
       score -= 5;
       totalMisses++;
+      message.textContent = "You missed!";
       launched = false;
-      updateStats();
+      projectile.time = 0;
     }
   }
 
-  // Draw scoreboard and timer
-  ctx.fillStyle = "white";
-  ctx.font = "16px Arial";
+  ctx.fillStyle = "#fff";
+  ctx.font = "14px Arial";
   ctx.fillText(`Score: ${score}`, 10, 20);
   ctx.fillText(`Hits: ${totalHits}  Misses: ${totalMisses}`, 10, 40);
-
-  const hitAverage = totalHits + totalMisses > 0 ? ((totalHits / (totalHits + totalMisses)) * 100).toFixed(1) : 0;
-  ctx.fillText(`Hit %: ${hitAverage}%`, 10, 60);
+  const hitAvg = totalHits + totalMisses > 0
+    ? ((totalHits / (totalHits + totalMisses)) * 100).toFixed(1)
+    : 0;
+  ctx.fillText(`Hit %: ${hitAvg}%`, 10, 60);
   ctx.fillText(`Time Left: ${gameTimer}s`, 10, 80);
 
   requestAnimationFrame(update);
-}
-
-function updateStats() {
-  const hitAverage = totalHits + totalMisses > 0 ? ((totalHits / (totalHits + totalMisses)) * 100).toFixed(1) : 0;
-  console.log(`Hits: ${totalHits}, Misses: ${totalMisses}, Hit %: ${hitAverage}%`);
 }
 
 function countdown() {
@@ -149,9 +199,10 @@ function countdown() {
     setTimeout(countdown, 1000);
   } else {
     gameActive = false;
-    message.textContent = `⏰ Time's up! Final Score: ${score}`;
+    location.reload();  // Auto restart
   }
 }
 
 update();
 countdown();
+
